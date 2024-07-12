@@ -47,7 +47,17 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/needvolunteers/:id', async (req, res) => {
+
+        // Find need volunteers post by category
+        app.get('/needvolunteercategory', async (req, res) => {
+            const category = req.query.category
+            const query = {category: category}
+            const result = await needVolunteerCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        // Find need volunteer post by id
+        app.get('/needvolunteer/:id', async (req, res) => {
             const id = req.params.id;
             const query = {_id: new ObjectId(id)}
             const result = await needVolunteerCollection.findOne(query);
