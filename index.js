@@ -64,6 +64,28 @@ async function run() {
             res.send(result)
         })
 
+        // Add needvolunteerpost
+        app.post('/needvolunteerpost', async(req, res) => {
+            const addAnounce = req.body
+            const result = await needVolunteerCollection.insertOne(addAnounce);
+            res.send(result)
+        })
+
+        // Update needvolunteerpost
+        app.put('/needvolunteer/:id', async(req, res) => {
+            const id = req.params.id
+            const updateData = req.body
+            const query = {_id: new ObjectId(id)}
+            const options = { upsert: true }
+            const updateDoc = {
+                $set: {
+                    ...updateData
+                }
+            };
+            const result = await needVolunteerCollection.updateOne(query, updateDoc, options)
+            res.send(result)
+        })
+
 
         // Send a ping to confirm a successful connection
         // await client.db("admin").command({ ping: 1 });
