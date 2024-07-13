@@ -40,6 +40,7 @@ async function run() {
         // await client.connect();
 
         const needVolunteerCollection = client.db('servejoyDB').collection('needVolunteer')
+        const requestCollection = client.db('servejoyDB').collection('beAVolunteer')
 
 
         app.get('/needvolunteers', async (req, res) => {
@@ -64,6 +65,14 @@ async function run() {
             res.send(result)
         })
 
+        // Get need volunteer post by spacific user
+        app.get('/needvolunteers/:email', async(req, res) => {
+            const email = req.params.email
+            const query = {'organizer.email': email}
+            const result = await needVolunteerCollection.find(query).toArray();
+            res.send(result)
+        })
+
         // Add needvolunteerpost
         app.post('/needvolunteerpost', async(req, res) => {
             const addAnounce = req.body
@@ -83,6 +92,29 @@ async function run() {
                 }
             };
             const result = await needVolunteerCollection.updateOne(query, updateDoc, options)
+            res.send(result)
+        })
+
+        app.delete('/needvolunteer/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await needVolunteerCollection.deleteOne(query)
+            res.send(result);
+        })
+
+        // **** Be Volunteer Api Start
+
+        // Get Volunteer request baset on specific user email
+        app.get('/request/:email', async(req, res) => {
+            const email = req.params.email;
+            const query = {'volunteer.email': email}
+            const result = await requestCollection.find(query).toArray();
+            res.send(result)
+        })
+        // Be a volunteer request endpoint
+        app.post('/beavolunteer', async (req, res) => {
+            const request = req.body
+            const result = await requestCollection.insertOne(request);
             res.send(result)
         })
 
