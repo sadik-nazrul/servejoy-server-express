@@ -44,47 +44,62 @@ async function run() {
 
 
         app.get('/needvolunteers', async (req, res) => {
-            const result = await needVolunteerCollection.find().toArray()
-            res.send(result)
-        })
+            const { sort, limit, search } = req.query;
+            let sortOption = {};
+            let limitOption = parseInt(limit) || 0; // Default to 0, which means no limit
+        
+            if (sort === 'ascending') {
+                sortOption = { deadline: 1 }; // ascending by deadline
+            } else if (sort === 'descending') {
+                sortOption = { deadline: -1 }; // descending by deadline
+            }
+        
+            // Initialize the query object
+            let query = {};
+        
+            // If a search term is provided, add it to the query object
+            if (search) {
+                query.title = { $regex: search, $options: 'i' }; // case-insensitive search
+            }
+        
+            try {
+                const result = await needVolunteerCollection.find(query).sort(sortOption).limit(limitOption).toArray();
+                res.send(result);
+            } catch (err) {
+                res.status(500).send({ error: 'An error occurred while fetching data' });
+            }
+        });
+        
 
-
-        // Find need volunteers post by category
-        app.get('/needvolunteercategory', async (req, res) => {
-            const category = req.query.category
-            const query = {category: category}
-            const result = await needVolunteerCollection.find(query).toArray()
-            res.send(result)
-        })
 
         // Find need volunteer post by id
         app.get('/needvolunteer/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id: new ObjectId(id)}
+            const query = { _id: new ObjectId(id) }
             const result = await needVolunteerCollection.findOne(query);
             res.send(result)
         })
 
         // Get need volunteer post by spacific user
-        app.get('/needvolunteers/:email', async(req, res) => {
+        app.get('/needvolunteers/:email', async (req, res) => {
             const email = req.params.email
-            const query = {'organizer.email': email}
+            const query = { 'organizer.email': email }
             const result = await needVolunteerCollection.find(query).toArray();
             res.send(result)
         })
 
         // Add needvolunteerpost
-        app.post('/needvolunteerpost', async(req, res) => {
+        app.post('/needvolunteerpost', async (req, res) => {
             const addAnounce = req.body
             const result = await needVolunteerCollection.insertOne(addAnounce);
             res.send(result)
         })
 
         // Update needvolunteerpost
-        app.put('/needvolunteer/:id', async(req, res) => {
+        app.put('/needvolunteer/:id', async (req, res) => {
             const id = req.params.id
             const updateData = req.body
-            const query = {_id: new ObjectId(id)}
+            const query = { _id: new ObjectId(id) }
             const options = { upsert: true }
             const updateDoc = {
                 $set: {
@@ -105,18 +120,41 @@ async function run() {
         // **** Be Volunteer Api Start
 
         // Get Volunteer request baset on specific user email
-        app.get('/request/:email', async(req, res) => {
+        app.get('/request/:email', async (req, res) => {
             const email = req.params.email;
-            const query = {'volunteer.email': email}
+            const query = { 'volunteer.email': email }
             const result = await requestCollection.find(query).toArray();
             res.send(result)
         })
+
+        // get requested
+        app.get('/requested/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { organizer: email };
+            const result = await requestCollection.find(query).toArray();
+            res.send(result)
+        })
+
         // Be a volunteer request endpoint
         app.post('/beavolunteer', async (req, res) => {
             const request = req.body
             const result = await requestCollection.insertOne(request);
             res.send(result)
         })
+
+        // Update status
+        app.patch('/request/:id', async (req, res) => {
+            const id = req.params.id
+            const status = req.body
+            console.log(status, id);
+            const query = { _id: new ObjectId(id) }
+            const updateStatus = {
+                $set: status
+            }
+            const result = await requestCollection.updateOne(query, updateStatus)
+            res.send(result)
+        })
+
 
 
         // Send a ping to confirm a successful connection
