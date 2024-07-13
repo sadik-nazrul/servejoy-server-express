@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const app = express();
@@ -19,6 +21,28 @@ const corsOptions = {
 // Midlewares
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser());
+
+
+// My midlewares
+const verifyToken = (req, res, next) => {
+    const token = req.cookies.token;
+    if (!token) {
+        return res.status(401).send({ message: 'unauthorize access' })
+    }
+    if (token) {
+        jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+            if (err) {
+                console.log(err);
+                return res.status(401).send({ message: 'unauthorize access' })
+            }
+            console.log('from my midleware:', decoded);
+            req.user = decoded
+            next()
+        })
+    }
+
+}
 
 
 
@@ -42,26 +66,51 @@ async function run() {
         const needVolunteerCollection = client.db('servejoyDB').collection('needVolunteer')
         const requestCollection = client.db('servejoyDB').collection('beAVolunteer')
 
+        // Generate jwt token
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '365d' })
+            console.log('User token ===>', user);
+            res
+                .cookie('token', token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
+                })
+                .send({ success: true })
+        })
+
+        // Clear token from cookies on logout
+        app.get('/logout', (req, res) => {
+            res
+                .clearCookie('token', {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict', maxAge: 0
+                })
+                .send({ success: true })
+        })
+
 
         app.get('/needvolunteers', async (req, res) => {
             const { sort, limit, search } = req.query;
             let sortOption = {};
             let limitOption = parseInt(limit) || 0; // Default to 0, which means no limit
-        
+
             if (sort === 'ascending') {
                 sortOption = { deadline: 1 }; // ascending by deadline
             } else if (sort === 'descending') {
                 sortOption = { deadline: -1 }; // descending by deadline
             }
-        
+
             // Initialize the query object
             let query = {};
-        
+
             // If a search term is provided, add it to the query object
             if (search) {
                 query.title = { $regex: search, $options: 'i' }; // case-insensitive search
             }
-        
+
             try {
                 const result = await needVolunteerCollection.find(query).sort(sortOption).limit(limitOption).toArray();
                 res.send(result);
@@ -69,7 +118,7 @@ async function run() {
                 res.status(500).send({ error: 'An error occurred while fetching data' });
             }
         });
-        
+
 
 
         // Find need volunteer post by id
@@ -81,7 +130,7 @@ async function run() {
         })
 
         // Get need volunteer post by spacific user
-        app.get('/needvolunteers/:email', async (req, res) => {
+        app.get('/needvolunteers/:email', verifyToken, async (req, res) => {
             const email = req.params.email
             const query = { 'organizer.email': email }
             const result = await needVolunteerCollection.find(query).toArray();
@@ -120,7 +169,7 @@ async function run() {
         // **** Be Volunteer Api Start
 
         // Get Volunteer request baset on specific user email
-        app.get('/request/:email', async (req, res) => {
+        app.get('/request/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const query = { 'volunteer.email': email }
             const result = await requestCollection.find(query).toArray();
@@ -128,7 +177,7 @@ async function run() {
         })
 
         // get requested
-        app.get('/requested/:email', async (req, res) => {
+        app.get('/requested/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const query = { organizer: email };
             const result = await requestCollection.find(query).toArray();
